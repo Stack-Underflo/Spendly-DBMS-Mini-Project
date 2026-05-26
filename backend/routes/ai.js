@@ -23,9 +23,9 @@ async function gemini(contents, systemInstructionText = null) {
   const rawApiKey = process.env.GEMINI_API_KEY;
   const apiKey = rawApiKey ? rawApiKey.replace(/['";\s]/g, '') : '';
 
-  // Bulletproof fallback condition validation
-  if (!apiKey || apiKey === '' || apiKey === 'AIzaSyDNx6lO5GMEo7Ea4pB5DHmzn5P5HKvl2EA') {
-    throw new Error(`Gemini API key is unconfigured or evaluation failed. Value state: ${typeof rawApiKey}`);
+  // FIXED: Removed the hardcoded string comparison blocking check that was killing execution
+  if (!apiKey || apiKey === '') {
+    throw new Error(`Gemini API key is unconfigured or evaluation failed. Ensure GEMINI_API_KEY is mapped in Render.`);
   }
 
   const res = await fetch(`${GEMINI_URL}?key=${apiKey}`, {
@@ -40,6 +40,11 @@ async function gemini(contents, systemInstructionText = null) {
   }
 
   const data = await res.json();
+  
+  if (!data.candidates || !data.candidates[0]?.content?.parts[0]?.text) {
+    throw new Error("Malformatted parsing array returned from Gemini context nodes.");
+  }
+
   return data.candidates[0].content.parts[0].text;
 }
 
@@ -57,6 +62,7 @@ router.post('/categorize', async (req, res) => {
 
     res.json({ success: true, category: finalCategory });
   } catch (err) {
+    console.error("AI Categorization failed:", err.message);
     res.status(500).json({ success: false, message: err.message });
   }
 });
@@ -77,7 +83,7 @@ router.post('/analyze', async (req, res) => {
       title: e.title,
       amount: e.amount,
       category: e.category,
-      date: e.date.toISOString().split('T')[0]
+      date: e.date ? e.date.toISOString().split('T')[0] : 'Unknown Date'
     }));
 
     const systemPrompt = "You are a professional financial advisor bot named Spendly AI. Analyze the user's transaction data, point out spending habits, highlight categories costing them the most, and provide 3 highly actionable budgeting tips. Use Markdown for structuring headers and bullet lines.";
@@ -86,6 +92,7 @@ router.post('/analyze', async (req, res) => {
     const reply = await gemini([{ parts: [{ text: userMessage }] }], systemPrompt);
     res.json({ success: true, analysis: reply });
   } catch (err) {
+    console.error("AI Analysis failing trace:", err.message);
     res.status(500).json({ success: false, message: err.message });
   }
 });
@@ -103,7 +110,7 @@ router.post('/chat', async (req, res) => {
         title: e.title,
         amount: e.amount,
         category: e.category,
-        date: e.date.toISOString().split('T')[0]
+        date: e.date ? e.date.toISOString().split('T')[0] : 'Unknown Date'
       }));
     }
 
@@ -124,6 +131,7 @@ router.post('/chat', async (req, res) => {
     const reply = await gemini(contents, systemPrompt);
     res.json({ success: true, reply });
   } catch (err) {
+    console.error("AI Chat engine dropped packet error:", err.message);
     res.status(500).json({ success: false, message: err.message });
   }
 });
