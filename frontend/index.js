@@ -1,7 +1,6 @@
 // frontend/index.js
-const API = '/api';
 const API_BASE_URL = 'https://spendly-dbms-mini-project.onrender.com/api';
-const res = await fetch(`${API_BASE_URL}${endpoint}`, { ... });
+
 let chatHistory = [];
 let deleteTargetId = null;
 let isSignUpMode = false;
@@ -9,7 +8,7 @@ let currentSessionToken = null;
 
 async function initializeApp() {
   try {
-    // If you are testing the backend health check on startup:
+    // Test the backend health check on startup:
     const res = await fetch(`${API_BASE_URL}/health`);
     const data = await res.json();
     console.log("Database status connection matrix:", data);
@@ -43,7 +42,9 @@ async function apiFetch(path, method = 'GET', body = null) {
   }
 
   if (body) opts.body = JSON.stringify(body);
-  const res = await fetch(API + path, opts);
+  
+  // FIXED: Changed from local 'API' reference to the live hosted 'API_BASE_URL'
+  const res = await fetch(API_BASE_URL + path, opts);
   
   if (res.status === 401 && token) {
     localStorage.clear();
@@ -170,7 +171,6 @@ function checkSession() {
     authActionBtn.style.display = 'none';
     logoutActionBtn.style.display = 'flex';
   } else {
-    // ─── TOUCH UP: CLEAR SIGN-IN CALL TO ACTION FOR GUESTS ───
     avatar.textContent = '?';
     avatar.style.background = 'var(--accent)';
     nameDisplay.textContent = 'Sign In / Sign Up';
@@ -305,8 +305,6 @@ async function loadExpenses() {
   }
 }
 
-// frontend/index.js
-
 async function saveExpense() {
   const title = document.getElementById('exp-title').value.trim();
   const amount = parseFloat(document.getElementById('exp-amount').value);
@@ -319,7 +317,6 @@ async function saveExpense() {
     return;
   }
 
-  // FIXED: Using apiFetch ensures your Bearer Token is passed in the headers
   const res = await apiFetch('/expenses', 'POST', { title, amount, category, date, notes });
   
   if (res.success) {
@@ -445,7 +442,7 @@ function escHtml(s) {
 
 function formatMarkdown(t) {
   return t
-    .replace(/\*\*(.*?)\*\"/g, '<strong>$1</strong>')
+    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
     .replace(/\*(.*?)\*/g, '<em>$1</em>')
     .replace(/\n/g, '<br/>');
 }
