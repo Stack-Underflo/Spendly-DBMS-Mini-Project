@@ -7,6 +7,20 @@ let deleteTargetId = null;
 let isSignUpMode = false;
 let currentSessionToken = null;
 
+async function initializeApp() {
+  try {
+    // If you are testing the backend health check on startup:
+    const res = await fetch(`${API_BASE_URL}/health`);
+    const data = await res.json();
+    console.log("Database status connection matrix:", data);
+  } catch (err) {
+    console.error("Initialization network link failed:", err);
+  }
+}
+
+// Fire the initializer engine
+initializeApp();
+
 // ─── CURRENCY LOGIC CONFIG ───
 function formatRupee(amount) {
   return new Intl.NumberFormat('en-IN', {
