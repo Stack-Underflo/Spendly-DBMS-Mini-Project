@@ -69,8 +69,14 @@ document.addEventListener('click', () => {
 });
 
 function openAuthModal() {
-  // If a token exists, don't open the login form (let them use the log out menu instead)
+  // If a token exists, don't open the login form
   if (localStorage.getItem('spendly_token')) return; 
+  
+  // CLEANUP MATRIX: Explicitly wipe out text parameters whenever the modal wakes up
+  document.getElementById('auth-email').value = '';
+  document.getElementById('auth-password').value = '';
+  const usernameInput = document.getElementById('auth-username');
+  if (usernameInput) usernameInput.value = '';
   
   document.getElementById('auth-modal').style.display = 'flex';
 }
@@ -81,6 +87,13 @@ function closeAuthModal() {
 
 function toggleAuthMode() {
   isSignUpMode = !isSignUpMode;
+  
+  // CLEANUP MATRIX: Also wipe inputs when toggling back and forth between Login and Register
+  document.getElementById('auth-email').value = '';
+  document.getElementById('auth-password').value = '';
+  const usernameInput = document.getElementById('auth-username');
+  if (usernameInput) usernameInput.value = '';
+
   const title = document.getElementById('auth-title');
   const subtitle = document.getElementById('auth-subtitle');
   const userGroup = document.getElementById('username-group');
