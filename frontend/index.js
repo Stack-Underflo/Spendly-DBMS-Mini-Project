@@ -1,6 +1,6 @@
 // frontend/index.js
 const API = '/api';
-const API_BASE_URL = 'https://spendly-dbms-mini-project.onrender.com';
+const API_BASE_URL = 'https://spendly-dbms-mini-project.onrender.com/api';
 const res = await fetch(`${API_BASE_URL}${endpoint}`, { ... });
 let chatHistory = [];
 let deleteTargetId = null;
