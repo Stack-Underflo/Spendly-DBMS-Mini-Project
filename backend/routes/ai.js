@@ -2,51 +2,20 @@
 const express = require('express');
 const router = express.Router();
 const Expense = require('../models/Expense');
+const { GoogleGenAI } = require('@google/genai'); // 1. Import official SDK
 
 // SAFETY ANCHOR: Force dotenv to load directly here just in case server.js execution order got shifted
 require('dotenv').config();
 
-const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent';
 const CATEGORIES = ['Food', 'Transport', 'Housing', 'Entertainment', 'Health', 'Shopping', 'Education', 'Other'];
 
-// ─── Helper: call Gemini API with correct structure ───
-async function gemini(contents, systemInstructionText = null) {
-  const body = { contents };
-  
-  if (systemInstructionText) {
-    body.systemInstruction = {
-      parts: [{ text: systemInstructionText }]
-    };
-  }
+// CLEANING MATRIX: Extract key and aggressively trim any hidden whitespace/newlines/quotes from the .env file
+const rawApiKey = process.env.GEMINI_API_KEY;
+const apiKey = rawApiKey ? rawApiKey.replace(/['";\s]/g, '') : '';
 
-  // CLEANING MATRIX: Extract key and aggressively trim any hidden whitespace/newlines/quotes from the .env file
-  const rawApiKey = process.env.GEMINI_API_KEY;
-  const apiKey = rawApiKey ? rawApiKey.replace(/['";\s]/g, '') : '';
-
-  // FIXED: Removed the hardcoded string comparison blocking check that was killing execution
-  if (!apiKey || apiKey === '') {
-    throw new Error(`Gemini API key is unconfigured or evaluation failed. Ensure GEMINI_API_KEY is mapped in Render.`);
-  }
-
-  const res = await fetch(`${GEMINI_URL}?key=${apiKey}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.error?.message || `Gemini API returned error state code: ${res.status}`);
-  }
-
-  const data = await res.json();
-  
-  if (!data.candidates || !data.candidates[0]?.content?.parts[0]?.text) {
-    throw new Error("Malformatted parsing array returned from Gemini context nodes.");
-  }
-
-  return data.candidates[0].content.parts[0].text;
-}
+// 2. Initialize the client using the exact syntax from your snippet
+const ai = new GoogleGenAI({ apiKey: apiKey });
+const MODEL_NAME = 'gemini-3.1-flash-lite'; // Picked up directly from your AI Studio config
 
 // POST /api/ai/categorize — auto-tag an expense title
 router.post('/categorize', async (req, res) => {
@@ -55,8 +24,14 @@ router.post('/categorize', async (req, res) => {
     if (!title) return res.status(400).json({ success: false, message: 'Title required' });
 
     const prompt = `Categorize this expense title: "${title}". Choose exactly one from: ${CATEGORIES.join(', ')}. Reply with ONLY the category name.`;
-    const reply = await gemini([{ parts: [{ text: prompt }] }]);
     
+    // 3. Replaced custom fetch wrapper with clean native client generation call
+    const response = await ai.models.generateContent({
+      model: MODEL_NAME,
+      contents: prompt,
+    });
+
+    const reply = response.text || 'Other';
     const cleanReply = reply.trim();
     const finalCategory = CATEGORIES.includes(cleanReply) ? cleanReply : 'Other';
 
@@ -86,11 +61,18 @@ router.post('/analyze', async (req, res) => {
       date: e.date ? e.date.toISOString().split('T')[0] : 'Unknown Date'
     }));
 
-    const systemPrompt = "You are a professional financial advisor bot named Spendly AI. Analyze the user's transaction data, point out spending habits, highlight categories costing them the most, and provide 3 highly actionable budgeting tips. Use Markdown for structuring headers and bullet lines.";
     const userMessage = `Here are my recent expenses:\n${JSON.stringify(dataSummary, null, 2)}`;
 
-    const reply = await gemini([{ parts: [{ text: userMessage }] }], systemPrompt);
-    res.json({ success: true, analysis: reply });
+    // 4. Injected your precise systemInstructions payload structure straight from your snippet
+    const response = await ai.models.generateContent({
+      model: MODEL_NAME,
+      contents: [{ role: 'user', parts: [{ text: userMessage }] }],
+      config: {
+        systemInstruction: "You are Spendly AI, a helpful personal finance companion. You analyze transaction logs, point out spending habits, and give 3 highly actionable budgeting tips using clean Markdown format.",
+      }
+    });
+
+    res.json({ success: true, analysis: response.text });
   } catch (err) {
     console.error("AI Analysis failing trace:", err.message);
     res.status(500).json({ success: false, message: err.message });
@@ -128,8 +110,16 @@ router.post('/chat', async (req, res) => {
     
     contents.push({ role: 'user', parts: [{ text: message }] });
 
-    const reply = await gemini(contents, systemPrompt);
-    res.json({ success: true, reply });
+    // 5. Native SDK generation execution map with matching session history matrix arrays
+    const response = await ai.models.generateContent({
+      model: MODEL_NAME,
+      contents: contents,
+      config: {
+        systemInstruction: systemPrompt,
+      }
+    });
+
+    res.json({ success: true, reply: response.text });
   } catch (err) {
     console.error("AI Chat engine dropped packet error:", err.message);
     res.status(500).json({ success: false, message: err.message });
