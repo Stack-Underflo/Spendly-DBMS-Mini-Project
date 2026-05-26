@@ -1,5 +1,6 @@
 // frontend/index.js
 const API = '/api';
+const API_BASE_URL = 'https://spendly-dbms-mini-project.onrender.com';
 let chatHistory = [];
 let deleteTargetId = null;
 let isSignUpMode = false;
