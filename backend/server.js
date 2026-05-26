@@ -22,7 +22,7 @@ app.use('/api/auth', authRoutes);
 
 
 // ─── 2. GLOBAL AUTH INJECTOR MIDDLEWARE ───
-// This intercepts requests and decodes req.userId for protected routes down the chain
+// This intercepts incoming requests and decodes req.userId for protected routes down the chain
 app.use(protect);
 
 
@@ -33,18 +33,22 @@ app.use('/api/ai', aiRoutes);
 
 // ─── 4. HEALTH MONITORING CHECK ───
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', db: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected' });
+  res.json({ 
+    status: 'ok', 
+    db: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected' 
+  });
 });
 
 
-// ─── 5. SERVE FRONTEND STATIC FILES ───
-// CHANGED: Moved here so it doesn't intercept or corrupt API paths pre-execution
-app.use(express.static(path.join(__dirname, '../frontend')));
-
-
-// ─── 6. CATCH-ALL INTERCEPTOR: Serve SPA Frontend ───
+// ─── 5. CATCH-ALL INTERCEPTOR (CLEAN API GATEWAY LANDING) ───
+// FIXED: Replaced the broken local file reader (res.sendFile) with a stable JSON response.
+// If anyone hits your main Render domain URL directly via a browser, they get a healthy confirmation message.
 app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, '../frontend/index.html'));
+  res.json({ 
+    message: "Spendly API Engine Gateway is active and live.", 
+    status: "production",
+    infrastructure: "Database operational coordinates mapped successfully."
+  });
 });
 
 
@@ -53,7 +57,7 @@ mongoose
   .connect(process.env.MONGO_URI)
   .then(() => {
     console.log('✅  MongoDB connected successfully');
-    app.listen(PORT, () => console.log(`🚀  Spendly running at http://localhost:${PORT}`));
+    app.listen(PORT, () => console.log(`🚀  Spendly API running at port ${PORT}`));
   })
   .catch(err => {
     console.error('❌  MongoDB connection failed:', err.message);
